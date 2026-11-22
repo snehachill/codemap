@@ -1,0 +1,23 @@
+{
+  "name": "codemap-backend",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "try": "node scripts/try-ingest.js",
+    "test:parse": "node scripts/test-offline.js",
+    "eval": "node scripts/evaluate.js"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
+    "cors": "^2.8.5",
+    "dotenv": "^18.0.8",
+    "express": "^4.19.2",
+    "mongodb": "^7.7.0",
+    "tar": "^7.4.3",
+    "tree-sitter-wasms": "^0.1.11",
+    "web-tree-sitter": "^0.22.6"
+  },
+  "description": "CodeMap AI backend: GitHub repo -> AST chunks + dependency graph -> embeddings -> cited RAG answers"
+}

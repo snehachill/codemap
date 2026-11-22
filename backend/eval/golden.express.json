@@ -1,0 +1,12 @@
+[
+  { "question": "Where is app.use defined?", "expectedFiles": ["lib/application.js"] },
+  { "question": "How does res.json send a JSON response?", "expectedFiles": ["lib/response.js"] },
+  { "question": "How are views rendered with a template engine?", "expectedFiles": ["lib/view.js", "lib/application.js", "lib/response.js"] },
+  { "question": "How does req.get read a request header?", "expectedFiles": ["lib/request.js"] },
+  { "question": "How is the express application object created?", "expectedFiles": ["lib/express.js"] },
+  { "question": "Where is app.listen implemented?", "expectedFiles": ["lib/application.js"] },
+  { "question": "How is res.redirect implemented?", "expectedFiles": ["lib/response.js"] },
+  { "question": "Which helper compiles the etag setting?", "expectedFiles": ["lib/utils.js"] },
+  { "question": "How does res.cookie set a cookie?", "expectedFiles": ["lib/response.js"] },
+  { "question": "How are errors logged in the app?", "expectedFiles": ["lib/application.js"] }
+]
