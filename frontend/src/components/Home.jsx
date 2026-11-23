@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Logo from './Logo.jsx';
 import { getRepo, listRepos, parseGithubUrl, startIndexing } from '../api.js';
 
-const STEPS = ['Fetching files', 'Parsing code', 'Embedding chunks', 'Ready'];
+const STEPS = ['Download', 'Chunk', 'Embed', 'Ready'];
 const STEP_OF = { queued: 0, fetching: 0, parsing: 1, embedding: 2, ready: 3 };
 const EXAMPLES = [{ label: 'Try Express', url: 'https://github.com/expressjs/express' }, { label: 'Try clsx', url: 'https://github.com/lukeed/clsx' }];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

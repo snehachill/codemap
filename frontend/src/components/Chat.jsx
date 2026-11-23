@@ -5,6 +5,9 @@ import { ask } from '../api.js';
 const SUGGESTIONS = ['What does this project do?', 'Where is the entry point?', 'How does error handling work?'];
 const CITE = /\[([^\[\]:\s]+):(\d+)(?:-(\d+))?\]/g;
 
+// Models sometimes write citations with fancy brackets. Turn them into normal ones.   // CHANGED (new helper)
+const fixBrackets = (t) => t.replace(/[【［]/g, '[').replace(/[】］]/g, ']');
+
 // Turns [path:10-20] in the answer into clickable links (#cite:path:10-20).
 const linkCitations = (text) =>
   text.replace(CITE, (_, path, a, b) => `[${path}:${a}${b ? '-' + b : ''}](#cite:${encodeURIComponent(path)}:${a}-${b || a})`);
@@ -41,6 +44,10 @@ export default function Chat({ repoKey, ready, onOpen, onCited }) {
     setBusy(false);
   }
 
+  async function copyAnswer(text) {
+    try { await navigator.clipboard.writeText(fixBrackets(text)); } catch { /* Clipboard may be unavailable in non-secure contexts. */ }   // CHANGED
+  }
+
   const renderLink = (m) => ({ href, children }) => {
     if (!href?.startsWith('#cite:')) return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
     const [encPath, range] = href.slice(6).split(':');
@@ -69,8 +76,9 @@ export default function Chat({ repoKey, ready, onOpen, onCited }) {
           <div key={i} className={`msg ${m.role}`}>
             {m.role === 'user' ? m.text : (
               <>
-                {m.error ? <p className="error">{m.error}</p> : <ReactMarkdown components={{ a: renderLink(m) }}>{linkCitations(m.text) || '…'}</ReactMarkdown>}
-                {m.refused && <p className="note">No relevant code found, so nothing was guessed.</p>}
+                {m.error ? <p className="error">{m.error}</p> : m.text ? <ReactMarkdown components={{ a: renderLink(m) }}>{linkCitations(fixBrackets(m.text))}</ReactMarkdown> : <div className="typing" role="status" aria-label="Assistant is responding"><i /><i /><i /></div>}   {/* CHANGED */}
+                {m.text && <button type="button" className="copy-answer" onClick={() => copyAnswer(m.text)}>Copy</button>}
+                {m.refused && <p className="note info-card">No relevant code turned up for this question. I haven’t guessed at an answer.</p>}
                 {m.sources?.length > 0 && (
                   <details className="sources"><summary>{m.sources.length} code chunks used</summary>
                     {m.sources.map((s, j) => (

@@ -9,6 +9,7 @@ const isTest = (p) => /(^|\/)(tests?|__tests__|spec|e2e|examples?|benchmarks?)\/
 export default function GraphView({ graph, colorOf, cited, onOpen }) {
   const wrap = useRef(null);
   const svgRef = useRef(null);
+  const resetView = useRef(null);
   const [size, setSize] = useState({ w: 800, h: 500 });
   const [t, setT] = useState(zoomIdentity);
   const [hover, setHover] = useState(null);
@@ -58,21 +59,23 @@ export default function GraphView({ graph, colorOf, cited, onOpen }) {
     const xs = layout.nodes.map((n) => n.x), ys = layout.nodes.map((n) => n.y);
     const [x0, x1, y0, y1] = [Math.min(...xs) - 60, Math.max(...xs) + 60, Math.min(...ys) - 60, Math.max(...ys) + 60];
     const k = Math.min(1.3, size.w / (x1 - x0), size.h / (y1 - y0)) || 1;
-    sel.call(z.transform, zoomIdentity.translate(size.w / 2 - ((x0 + x1) / 2) * k, size.h / 2 - ((y0 + y1) / 2) * k).scale(k));
+    const fitted = zoomIdentity.translate(size.w / 2 - ((x0 + x1) / 2) * k, size.h / 2 - ((y0 + y1) / 2) * k).scale(k);
+    sel.call(z.transform, fitted);
+    resetView.current = () => sel.call(z.transform, fitted);
     return () => sel.on('.zoom', null);
   }, [layout, Math.round(size.w / 40)]);
 
-  const empty = !layout.nodes.length; // keep the wrapper mounted so refs and observers always have an element
+  const empty = !layout.nodes.length || layout.links.length <= 1;
   const near = (id) => hover && (hover.id === id || layout.links.some((l) => (l.source.id === hover.id && l.target.id === id) || (l.target.id === hover.id && l.source.id === id)));
 
   return (
     <div className="graph-wrap" ref={wrap}>
-      {empty && <div className="empty">No import links found in this repo. The graph needs JS/TS files that import each other. Try the Treemap or Code tab.</div>}
+      {empty && <div className="graph-empty"><span className="graph-empty-icon">↗</span><b>Not enough connections to map yet</b><span>This repository has very few import links. Explore its files in the Treemap or Code tab.</span></div>}
       {!empty && <svg ref={svgRef} width="100%" height="100%" role="img" aria-label="Dependency graph of the repository">
         <g transform={t.toString()}>
           {layout.links.map((l, i) => {
             const on = hover && (l.source.id === hover.id || l.target.id === hover.id);
-            return <line key={i} x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y} stroke={on ? '#4F46E5' : '#CBD0E3'} strokeWidth={on ? 2.2 : 1.4} opacity={hover && !on ? 0.3 : 1} />;
+            return <line key={i} className="gedge" x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y} stroke={on ? '#83E7DC' : '#53617B'} strokeWidth={on ? 2.6 : 1.25} opacity={hover && !on ? 0.12 : 0.72} />;
           })}
           {layout.nodes.map((n) => {
             const isCited = cited.has(n.id);
@@ -81,8 +84,8 @@ export default function GraphView({ graph, colorOf, cited, onOpen }) {
               <g key={n.id} transform={`translate(${n.x},${n.y})`} className="gnode" opacity={dim ? 0.3 : 1}
                  onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(null)} onClick={() => onOpen({ path: n.id })}>
                 {isCited && <circle className="pulse" r={n.r + 9} fill="none" stroke="#4F46E5" strokeWidth="3" />}
-                <circle r={n.r} fill={colorOf(n.id)} stroke="#fff" strokeWidth="2.5" />
-                {(n.importedBy > 0 || isCited || hover?.id === n.id || layout.nodes.length <= 40) && <text y={n.r + 14} textAnchor="middle" className="glabel">{n.label}</text>}
+                <circle className="node-glow" r={n.r} fill={colorOf(n.id)} style={{ filter: `drop-shadow(0 0 8px ${colorOf(n.id)}80)` }} stroke="#DAF8FF" strokeWidth={hover?.id === n.id ? 2.5 : 1.2} />
+                {(n.importedBy > 0 || isCited || hover?.id === n.id || layout.nodes.length <= 40) && <text y={n.r + 14} textAnchor="middle" className={`glabel ${hover && near(n.id) ? 'label-lit' : ''}`}>{n.label}</text>}
               </g>
             );
           })}
@@ -92,6 +95,7 @@ export default function GraphView({ graph, colorOf, cited, onOpen }) {
         <div className="tooltip"><b>{hover.id}</b><span>imported by {hover.importedBy} · imports {hover.imports}</span></div>
       )}
       <div className="legend">{colorOf.legend.slice(0, 6).map((l) => <span key={l.folder}><i style={{ background: l.color }} />{l.folder}</span>)}</div>
+      <button type="button" className="graph-reset" onClick={() => resetView.current?.()}>Reset view</button>
       <label className="toggle"><input type="checkbox" checked={hideTests} onChange={(e) => setHideTests(e.target.checked)} /> Hide tests &amp; examples</label>
       <div className="hint">Scroll to zoom · drag to pan · bigger node = more files depend on it</div>
     </div>

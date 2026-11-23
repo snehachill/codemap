@@ -10,6 +10,8 @@ import { getGraph, getRepo, getTree } from '../api.js';
 import { flattenFiles, makeColorizer } from '../lib/colors.js';
 
 const TABS = [['graph', 'Dependency graph'], ['code', 'Code'], ['treemap', 'Treemap']];
+const INDEX_STEPS = ['Download', 'Chunk', 'Embed', 'Ready'];
+const INDEX_STEP_OF = { queued: 0, fetching: 0, parsing: 1, embedding: 2, ready: 3 };
 
 export default function Workspace({ owner, repo, theme, onToggleTheme }) {
   const key = `${owner}/${repo}`.toLowerCase();
@@ -56,12 +58,15 @@ export default function Workspace({ owner, repo, theme, onToggleTheme }) {
         <span className={`status ${meta?.status || ''}`}>{ready ? 'Ready' : meta?.status === 'embedding' ? `Embedding ${pct}%` : meta?.status || 'Loading'}</span>
         <button className="theme-toggle" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>{theme === 'light' ? '☾ Dark' : '☀ Light'}</button>
       </header>
-      {meta?.status === 'embedding' && <div className="progress"><div style={{ width: `${pct}%` }} /></div>}
+      {meta && meta.status !== 'ready' && meta.status !== 'error' && <div className="indexing-strip" aria-live="polite">
+        <ol className="indexing-steps">{INDEX_STEPS.map((label, i) => <li key={label} className={i < INDEX_STEP_OF[meta.status] ? 'done' : i === INDEX_STEP_OF[meta.status] ? 'active' : ''}><span>{i < INDEX_STEP_OF[meta.status] ? '✓' : i + 1}</span>{label}</li>)}</ol>
+        <div className={`progress ${meta.status === 'embedding' ? '' : 'indeterminate'}`} aria-label={meta.status === 'embedding' ? `Embedding progress ${pct}%` : `${meta.status} in progress`}><div style={meta.status === 'embedding' ? { width: `${pct}%` } : undefined} /></div>
+      </div>}
 
       {error ? <div className="empty error">{error} <a href="#/">Go back</a></div> : (
         <div className="ws-body">
           <div className="ws-top"><Stats stats={meta?.stats} /></div>
-          {!tree ? <div className="empty">Loading repository…</div> : (
+          {!tree ? <div className="workspace-skeleton" aria-label="Loading repository"><div className="skeleton-panel"><i /><i /><i /><i /><i /></div><div className="skeleton-panel skeleton-main"><i /><i /><i /><i /></div><div className="skeleton-panel"><i /><i /><i /><i /></div></div> : (
             <div className="ws-grid">
               <FileTree tree={tree} colorOf={colorOf} active={file?.path} cited={cited} onOpen={open} />
               <section className="center">
