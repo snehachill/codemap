@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import nodePath from 'node:path';
+import { parseRepoUrl } from './ingest/github.js';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { createStore } from './store/index.js';
@@ -8,7 +9,7 @@ import { startIndexing, repoKeyOf } from './jobs/indexer.js';
 import { retrieve } from './rag/retrieve.js';
 import { buildMessages, streamAnswer, verifyCitations, NOT_FOUND } from './rag/answer.js';
 
-// One failed request (for example a dropped MongoDB connection) must not kill the server.
+
 process.on('unhandledRejection', (err) => console.error('Unhandled:', err?.message || err));
 
 const store = await createStore();
@@ -16,7 +17,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '100kb' }));
 
-// Wraps an async route so an error becomes a JSON reply instead of a crash.
 const wrap = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch((err) => {
     console.error(`${req.method} ${req.path}:`, err?.message || err);
@@ -24,7 +24,7 @@ const wrap = (fn) => (req, res, next) =>
     else res.end();
   });
 
-const meta = ({ tree, graph, externals, ...rest }) => rest;               // repo info without the heavy parts
+const meta = ({ tree, graph, externals, ...rest }) => rest;             
 const chunkMeta = (c) => ({ path: c.path, startLine: c.startLine, endLine: c.endLine, kind: c.kind, symbol: c.symbol });
 
 // Looks up :owner/:repo or sends the error response itself.
@@ -35,8 +35,6 @@ async function loadRepo(req, res, { needReady = false } = {}) {
   return repo;
 }
 
-// Short follow-ups ("in hinglish", "and where is it used?") say nothing about the topic,
-// so the search text borrows the previous user question. The model still gets the original question.
 function searchTextFor(question, history) {
   const prev = [...history].reverse().find((m) => m.role === 'user' && String(m.content).trim() !== question)?.content;
   const isShort = question.split(/\s+/).length < 8;
@@ -73,6 +71,14 @@ app.get('/api/health', (req, res) =>
 // Start indexing (runs in the background). Poll GET /api/repos/:owner/:repo for progress.
 app.post('/api/repos', async (req, res) => {
   try {
+    // Hosted demo (READ_ONLY=true): only open repositories that were already indexed on the laptop.
+    if (process.env.READ_ONLY === 'true') {
+      const { owner, repo } = parseRepoUrl(req.body?.url);
+      const key = repoKeyOf(owner, repo);
+      const existing = await store.getRepo(key);
+      if (existing?.status === 'ready') return res.status(200).json({ key, status: 'ready' });
+      return res.status(403).json({ error: 'Demo mode: only repositories that were indexed in advance can be opened.' });
+    }
     const { key } = await startIndexing(store, req.body?.url);
     res.status(202).json({ key, status: 'queued' });
   } catch (err) {
